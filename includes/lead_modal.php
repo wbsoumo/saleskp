@@ -222,43 +222,114 @@
 <script>
 window.currentOpenLeadPhone = '';
 
+window.safeShowModal = function(modalId) {
+    const $m = $('#' + modalId);
+    if ($m.length && typeof $m.modal === 'function') {
+        $m.modal('show');
+    } else {
+        const el = document.getElementById(modalId);
+        if (el) {
+            el.classList.add('show');
+            el.style.display = 'block';
+            el.removeAttribute('aria-hidden');
+            el.setAttribute('aria-modal', 'true');
+            document.body.classList.add('modal-open');
+            let backdrop = document.getElementById(modalId + '-backdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.id = modalId + '-backdrop';
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+            }
+        }
+    }
+};
+
+window.safeHideModal = function(modalId) {
+    const $m = $('#' + modalId);
+    if ($m.length && typeof $m.modal === 'function') {
+        $m.modal('hide');
+    } else {
+        const el = document.getElementById(modalId);
+        if (el) {
+            el.classList.remove('show');
+            el.style.display = 'none';
+            el.setAttribute('aria-hidden', 'true');
+            el.removeAttribute('aria-modal');
+            document.body.classList.remove('modal-open');
+            const backdrop = document.getElementById(modalId + '-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+    }
+};
+
+window.safeShowTab = function(tabLinkId) {
+    const $t = $('#' + tabLinkId);
+    if ($t.length && typeof $t.tab === 'function') {
+        $t.tab('show');
+    } else {
+        const link = document.getElementById(tabLinkId);
+        if (link) {
+            const targetId = link.getAttribute('href');
+            document.querySelectorAll('#leadModalTabs .nav-link').forEach(function(l) {
+                l.classList.remove('active');
+            });
+            document.querySelectorAll('#leadModalTabContent .tab-pane').forEach(function(p) {
+                p.classList.remove('show', 'active');
+            });
+            link.classList.add('active');
+            if (targetId) {
+                const pane = document.querySelector(targetId);
+                if (pane) pane.classList.add('show', 'active');
+            }
+        }
+    }
+};
+
+// Global fallback click listener for modal dismissal and tabs
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#leadDetailsModal [data-dismiss="modal"]') || (e.target.id && e.target.id === 'leadDetailsModal-backdrop')) {
+        window.safeHideModal('leadDetailsModal');
+    }
+    const tabLink = e.target.closest('#leadModalTabs .nav-link');
+    if (tabLink && (!window.jQuery || typeof $.fn.tab !== 'function')) {
+        e.preventDefault();
+        window.safeShowTab(tabLink.id);
+    }
+});
+
 window.openLeadModal = function(leadId) {
-    if (typeof $ === 'undefined') {
-        console.error('jQuery not loaded yet');
-        return;
+    isCallLogSubmitting = false;
+    if (typeof $ !== 'undefined') {
+        $('#btnSubmitLog').prop('disabled', false).removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
+        $('#logCallAlert').addClass('d-none').text('');
+        $('#modalAudioFile').next('.custom-file-label').html('Choose audio file (mp3, wav, m4a, ogg)...');
+        $('#groupFollowUpDate').addClass('d-none');
+        $('#inputFollowUpDate').prop('required', false);
+        $('#modalAudioPreviewBox').addClass('d-none');
+        $('#uploadProgressContainer').addClass('d-none');
+        $('#uploadProgressBar').css('width', '0%');
+        $('#uploadDoneBadge').addClass('d-none');
+        $('#logLeadId').val(leadId);
+        $('#leadModalName').text('Loading Lead #' + leadId + '...');
+        $('#leadModalCompany').text('Please wait...');
+        $('#leadModalStatusBadge').html('');
+        $('#leadModalAttemptsBadge').text('...');
+        $('#leadModalCallBtn').attr('href', 'tel:');
+        $('#leadModalCallText').text('Loading...');
     }
 
-    isCallLogSubmitting = false;
-    $('#btnSubmitLog').prop('disabled', false).removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
-    $('#logCallAlert').addClass('d-none').text('');
     const form = document.getElementById('formLogCall');
     if (form) form.reset();
 
-    $('#modalAudioFile').next('.custom-file-label').html('Choose audio file (mp3, wav, m4a, ogg)...');
-    $('#groupFollowUpDate').addClass('d-none');
-    $('#inputFollowUpDate').prop('required', false);
-
-    $('#modalAudioPreviewBox').addClass('d-none');
-    $('#uploadProgressContainer').addClass('d-none');
-    $('#uploadProgressBar').css('width', '0%');
-    $('#uploadDoneBadge').addClass('d-none');
     var prevPlayer = document.getElementById('modalAudioPreviewPlayer');
     if (prevPlayer) {
         prevPlayer.pause();
         prevPlayer.src = '';
     }
 
-    // Set lead ID
-    $('#logLeadId').val(leadId);
-    $('#leadModalName').text('Loading Lead #' + leadId + '...');
-    $('#leadModalCompany').text('Please wait...');
-    $('#leadModalStatusBadge').html('');
-    $('#leadModalAttemptsBadge').text('...');
-    $('#leadModalCallBtn').attr('href', 'tel:');
-    $('#leadModalCallText').text('Loading...');
-
-    $('#leadDetailsModal').modal('show');
-    $('#tab-log-link').tab('show');
+    window.safeShowModal('leadDetailsModal');
+    window.safeShowTab('tab-log-link');
 
     // Fetch lead details via API
     $.ajax({
@@ -268,7 +339,7 @@ window.openLeadModal = function(leadId) {
         success: function(resp) {
             if (!resp.success) {
                 alert(resp.error || 'Failed to load lead details.');
-                $('#leadDetailsModal').modal('hide');
+                window.safeHideModal('leadDetailsModal');
                 return;
             }
 
@@ -298,7 +369,7 @@ window.openLeadModal = function(leadId) {
         },
         error: function() {
             alert('Error communicating with server.');
-            $('#leadDetailsModal').modal('hide');
+            window.safeHideModal('leadDetailsModal');
         }
     });
 };

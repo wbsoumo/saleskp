@@ -20,8 +20,6 @@ $baseUrl = get_base_url();
 <?php require_once __DIR__ . '/attendance_modal.php'; ?>
 
 <!-- REQUIRED SCRIPTS -->
-<!-- Bootstrap 4 Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <!-- DataTables -->

@@ -33,6 +33,13 @@ $baseUrl = get_base_url();
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/custom.css">
     <!-- jQuery (loaded in head so all inline scripts and modals have immediate access to $) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap 4 Bundle (includes Popper.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    if (typeof jQuery !== 'undefined' && typeof jQuery.fn.modal === 'undefined') {
+        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.bundle.min.js"><\/script>');
+    }
+    </script>
 </head>
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm">
 <div class="wrapper">

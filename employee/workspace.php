@@ -384,4 +384,16 @@ $flash = get_flash();
 <!-- Include Lead Details & Call Logging Modal -->
 <?php require_once __DIR__ . '/../includes/lead_modal.php'; ?>
 
+<?php if (!empty($_GET['lead_id'])): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        if (typeof window.openLeadModal === 'function') {
+            window.openLeadModal(<?= (int)$_GET['lead_id'] ?>);
+        }
+    }, 200);
+});
+</script>
+<?php endif; ?>
+
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

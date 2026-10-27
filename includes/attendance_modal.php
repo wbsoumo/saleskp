@@ -160,11 +160,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof jQuery !== 'undefined') {
         var $modal = $('#mandatoryAttendanceModal');
         if ($modal.length) {
-            $modal.modal({
-                backdrop: 'static',
-                keyboard: false,
-                show: true
-            });
+            if (typeof $modal.modal === 'function') {
+                $modal.modal({
+                    backdrop: 'static',
+                    keyboard: false,
+                    show: true
+                });
+            } else {
+                var el = document.getElementById('mandatoryAttendanceModal');
+                if (el) {
+                    el.classList.add('show');
+                    el.style.display = 'block';
+                    document.body.classList.add('modal-open');
+                }
+            }
 
             // Card highlight on radio change
             $('input[name="status"]').on('change', function() {
