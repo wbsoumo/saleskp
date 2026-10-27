@@ -97,15 +97,6 @@ $flash = get_flash();
             background-color: #1d4ed8;
             border-color: #1d4ed8;
         }
-        .demo-pill {
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.8rem;
-        }
-        .demo-pill:hover {
-            opacity: 0.85;
-            transform: scale(1.02);
-        }
     </style>
 </head>
 <body class="hold-transition login-page">
@@ -145,7 +136,7 @@ $flash = get_flash();
                 <div class="form-group mb-3">
                     <label class="text-secondary small font-weight-bold mb-1">Employee ID / Username</label>
                     <div class="input-group">
-                        <input type="text" id="login_id" name="login_id" class="form-control" placeholder="e.g. EMP001 or admin" value="<?= e($loginId) ?>" required autofocus>
+                        <input type="text" id="login_id" name="login_id" class="form-control" placeholder="Enter Employee ID or Username" value="<?= e($loginId) ?>" required autofocus>
                         <div class="input-group-append">
                             <div class="input-group-text bg-light text-muted">
                                 <span class="fas fa-id-badge"></span>
@@ -174,26 +165,9 @@ $flash = get_flash();
                     </div>
                 </div>
             </form>
-
-            <div class="mt-4 pt-3 border-top">
-                <div class="small text-muted font-weight-bold mb-2 text-center">
-                    <i class="fas fa-key mr-1"></i> Quick Demo Logins (Click to autofill):
-                </div>
-                <div class="d-flex justify-content-between gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary demo-pill flex-fill mr-1" onclick="autofill('admin', 'Admin@123')">
-                        <i class="fas fa-user-shield mr-1"></i> Admin
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-info demo-pill flex-fill mr-1" onclick="autofill('EMP001', 'telecaller123')">
-                        <i class="fas fa-user mr-1"></i> Rahul (EMP001)
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-success demo-pill flex-fill" onclick="autofill('EMP002', 'telecaller123')">
-                        <i class="fas fa-user mr-1"></i> Priya (EMP002)
-                    </button>
-                </div>
-            </div>
         </div>
         <div class="card-footer bg-light text-center py-2 text-muted small">
-            Secured Telecaller Portal &bull; Shared Hosting Ready
+            <i class="fas fa-lock mr-1"></i> Secured Telecaller & Lead CRM Portal
         </div>
     </div>
 </div>
@@ -203,11 +177,6 @@ $flash = get_flash();
 <!-- Bootstrap 4 Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function autofill(user, pass) {
-        document.getElementById('login_id').value = user;
-        document.getElementById('password').value = pass;
-    }
-
     document.getElementById('togglePasswordBtn').addEventListener('click', function() {
         const passInput = document.getElementById('password');
         const icon = document.getElementById('togglePasswordIcon');
