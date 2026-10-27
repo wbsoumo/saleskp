@@ -1,0 +1,188 @@
+/* ==========================================================
+   Telecaller Reporting Web App - Custom UI Styling
+   Built on AdminLTE 3 & Bootstrap 4
+   ========================================================== */
+
+:root {
+  --primary-accent: #2c7be5;
+  --success-accent: #00d97e;
+  --info-accent: #39afd1;
+  --warning-accent: #f6c343;
+  --danger-accent: #e63757;
+  --dark-navy: #152e4d;
+}
+
+body {
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f4f6f9;
+}
+
+/* Card refinements */
+.card {
+  box-shadow: 0 0.125rem 0.35rem rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #ebedf2;
+  font-weight: 600;
+  padding: 0.85rem 1.25rem;
+}
+
+/* Stat Cards / Small Box hover */
+.small-box {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.small-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+}
+
+.small-box .icon {
+  font-size: 65px;
+  top: 15px;
+  right: 15px;
+  opacity: 0.25;
+  transition: transform 0.3s ease;
+}
+
+.small-box:hover .icon {
+  transform: scale(1.1);
+  opacity: 0.35;
+}
+
+/* Audio Player Custom Styling */
+.audio-player-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 30px;
+  border: 1px solid #e2e8f0;
+  max-width: 380px;
+}
+
+.audio-player-container audio {
+  width: 100%;
+  height: 36px;
+  outline: none;
+}
+
+/* Mobile Recording List Card */
+.recording-item-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border-left: 4px solid var(--primary-accent);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Step Wizard for Employee Daily Flow */
+.flow-wizard {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin-bottom: 25px;
+}
+
+.flow-wizard::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #e2e8f0;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.flow-step {
+  position: relative;
+  z-index: 2;
+  background: #ffffff;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 2px solid #cbd5e1;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-step.active {
+  border-color: #2c7be5;
+  color: #2c7be5;
+  background: #eff6ff;
+  box-shadow: 0 0 0 4px rgba(44, 123, 229, 0.15);
+}
+
+.flow-step.completed {
+  border-color: #00d97e;
+  color: #00d97e;
+  background: #f0fdf4;
+}
+
+/* Brand Logo */
+.brand-link {
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
+.brand-image {
+  box-shadow: none !important;
+}
+
+/* Responsive Table Adjustments */
+@media (max-width: 768px) {
+  .content-header h1 {
+    font-size: 1.35rem;
+  }
+  .audio-player-container {
+    width: 100%;
+    max-width: 100%;
+  }
+  .small-box .inner h3 {
+    font-size: 1.6rem;
+  }
+  .table-responsive-stack td {
+    word-break: break-word;
+  }
+  .flow-wizard {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .flow-wizard::before {
+    display: none;
+  }
+}
+
+/* Status Badges */
+.badge-status {
+  font-size: 85%;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Pulse animation for active playback */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(44, 123, 229, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(44, 123, 229, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(44, 123, 229, 0); }
+}
+
+.playing-now {
+  animation: pulseGlow 1.8s infinite;
+  border-color: #2c7be5 !important;
+}
