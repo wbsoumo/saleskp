@@ -182,6 +182,27 @@ $recentRecSql = "
 ";
 $recentRecordings = $db->query($recentRecSql)->fetchAll();
 
+// -------------------------------------------------------------
+// Today's Attendance Overview
+// -------------------------------------------------------------
+$todayWorkingDate = get_current_attendance_date();
+$stmtTodayAtt = $db->prepare("
+    SELECT 
+        COUNT(*) as total_punched,
+        SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as today_present,
+        SUM(CASE WHEN status = 'Half Day' THEN 1 ELSE 0 END) as today_half_day,
+        SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as today_absent
+    FROM attendance
+    WHERE attendance_date = ?
+");
+$stmtTodayAtt->execute([$todayWorkingDate]);
+$todayAtt = $stmtTodayAtt->fetch();
+$todayAttPresent = (int)($todayAtt['today_present'] ?? 0);
+$todayAttHalfDay = (int)($todayAtt['today_half_day'] ?? 0);
+$todayAttAbsent  = (int)($todayAtt['today_absent'] ?? 0);
+$todayAttPunched = (int)($todayAtt['total_punched'] ?? 0);
+$todayAttPending = max(0, $totalTelecallersCount - $todayAttPunched);
+
 $pageTitle = "Admin Dashboard";
 $activeNav = 'admin_dashboard';
 require_once __DIR__ . '/../includes/header.php';
@@ -321,6 +342,34 @@ $flash = get_flash();
                         </a>
                         <a href="leads.php?open_modal=import" class="btn btn-sm btn-outline-success font-weight-bold">
                             <i class="fas fa-file-excel mr-1"></i> Import Leads (Excel/CSV)
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attendance Overview Banner -->
+            <div class="card bg-white border shadow-sm mb-4">
+                <div class="card-body p-3 d-flex align-items-center justify-content-between flex-wrap">
+                    <div class="d-flex align-items-center mb-2 mb-md-0">
+                        <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mr-3" style="width: 48px; height: 48px;">
+                            <i class="fas fa-user-clock fa-lg"></i>
+                        </div>
+                        <div>
+                            <h5 class="font-weight-bold text-dark mb-0">Today's Attendance Status (<?= date('d M Y', strtotime($todayWorkingDate)) ?>)</h5>
+                            <span class="text-muted small">
+                                <span class="badge badge-success px-2 py-1 font-weight-bold mr-1"><?= $todayAttPresent ?> Present</span> &bull; 
+                                <span class="badge badge-warning text-dark px-2 py-1 font-weight-bold mr-1"><?= $todayAttHalfDay ?> Half Day</span> &bull; 
+                                <span class="badge badge-danger px-2 py-1 font-weight-bold mr-1"><?= $todayAttAbsent ?> Absent</span> &bull; 
+                                <span class="text-secondary"><?= $todayAttPending ?> Pending / Unmarked (Cutoff: 7:00 AM)</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="attendance.php" class="btn btn-sm btn-outline-primary shadow-sm mr-2 font-weight-bold">
+                            <i class="fas fa-list-check mr-1"></i> Attendance Logs
+                        </a>
+                        <a href="attendance_sheet.php" class="btn btn-sm btn-outline-info font-weight-bold">
+                            <i class="fas fa-table mr-1"></i> Monthly Sheet Matrix
                         </a>
                     </div>
                 </div>

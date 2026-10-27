@@ -342,3 +342,263 @@ function parse_leads_file(string $filepath): array {
     fclose($handle);
     return ['success' => true, 'leads' => $leads, 'total' => count($leads)];
 }
+
+/**
+ * =========================================================================
+ * ATTENDANCE MANAGEMENT SYSTEM HELPERS
+ * =========================================================================
+ */
+
+/**
+ * Get current working attendance date based on 7:00 AM daily cutoff
+ */
+function get_current_attendance_date(): string {
+    $hour = (int)date('H');
+    if ($hour < 7) {
+        return date('Y-m-d', strtotime('-1 day'));
+    }
+    return date('Y-m-d');
+}
+
+/**
+ * Check if employee has marked attendance for a given date
+ */
+function has_employee_marked_attendance(int $userId, ?string $date = null): bool {
+    $date = $date ?? get_current_attendance_date();
+    try {
+        $stmt = get_db()->prepare("SELECT id FROM attendance WHERE user_id = ? AND attendance_date = ? LIMIT 1");
+        $stmt->execute([$userId, $date]);
+        return (bool)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        error_log("has_employee_marked_attendance error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get employee attendance record for a specific date
+ */
+function get_employee_attendance_record(int $userId, ?string $date = null): ?array {
+    $date = $date ?? get_current_attendance_date();
+    try {
+        $stmt = get_db()->prepare("
+            SELECT a.*, u.name as employee_name, u.employee_id as emp_code,
+                   m.name as modified_by_name
+            FROM attendance a
+            JOIN users u ON a.user_id = u.id
+            LEFT JOIN users m ON a.modified_by = m.id
+            WHERE a.user_id = ? AND a.attendance_date = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$userId, $date]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    } catch (Exception $e) {
+        error_log("get_employee_attendance_record error: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Determine whether the mandatory daily attendance popup should be shown
+ * Triggered when:
+ * 1. User is an employee
+ * 2. Employee has not marked attendance for the current working attendance date (reset daily at 7:00 AM)
+ */
+function should_show_attendance_popup(int $userId): bool {
+    if (!is_employee()) {
+        return false;
+    }
+
+    $workingDate = get_current_attendance_date();
+    return !has_employee_marked_attendance($userId, $workingDate);
+}
+
+/**
+ * Record attendance for an employee
+ */
+function record_employee_attendance(int $userId, string $status, ?string $remarks = null, ?string $date = null): array {
+    $validStatuses = ['Present', 'Half Day', 'Absent'];
+    if (!in_array($status, $validStatuses, true)) {
+        return ['success' => false, 'error' => 'Invalid attendance status selected. Must be Present, Half Day, or Absent.'];
+    }
+
+    $date = $date ?? get_current_attendance_date();
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $punchTime = date('Y-m-d H:i:s');
+    $cleanRemarks = !empty($remarks) ? trim($remarks) : null;
+
+    try {
+        $db = get_db();
+        // Check if already submitted
+        $stmtCheck = $db->prepare("SELECT id, status FROM attendance WHERE user_id = ? AND attendance_date = ? LIMIT 1");
+        $stmtCheck->execute([$userId, $date]);
+        $existing = $stmtCheck->fetch();
+
+        if ($existing) {
+            return [
+                'success' => false,
+                'error'   => 'Attendance for date ' . $date . ' has already been recorded (' . $existing['status'] . '). Duplicate submissions are not allowed.'
+            ];
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO attendance (user_id, attendance_date, status, punch_time, punch_ip, employee_remarks, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $userId,
+            $date,
+            $status,
+            $punchTime,
+            $ip,
+            $cleanRemarks,
+            $punchTime,
+            $punchTime
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Attendance for ' . date('d M Y', strtotime($date)) . ' marked as ' . $status . ' successfully!',
+            'status'  => $status,
+            'date'    => $date
+        ];
+    } catch (PDOException $e) {
+        error_log("record_employee_attendance error: " . $e->getMessage());
+        return ['success' => false, 'error' => 'Database error recording attendance: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Admin correction of attendance with mandatory remarks and audit trail
+ */
+function admin_update_attendance(int $attendanceId, string $newStatus, string $remarks, int $adminId): array {
+    $validStatuses = ['Present', 'Half Day', 'Absent'];
+    if (!in_array($newStatus, $validStatuses, true)) {
+        return ['success' => false, 'error' => 'Invalid attendance status selected.'];
+    }
+
+    $cleanRemarks = trim($remarks);
+    if (empty($cleanRemarks)) {
+        return ['success' => false, 'error' => 'Remarks are mandatory when correcting attendance records.'];
+    }
+
+    try {
+        $db = get_db();
+        $stmt = $db->prepare("
+            UPDATE attendance
+            SET status = ?,
+                is_modified = 1,
+                modified_by = ?,
+                modified_at = ?,
+                admin_remarks = ?,
+                updated_at = ?
+            WHERE id = ?
+        ");
+        $now = date('Y-m-d H:i:s');
+        $stmt->execute([
+            $newStatus,
+            $adminId,
+            $now,
+            $cleanRemarks,
+            $now,
+            $attendanceId
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Attendance record updated successfully to ' . $newStatus . '.'
+        ];
+    } catch (PDOException $e) {
+        error_log("admin_update_attendance error: " . $e->getMessage());
+        return ['success' => false, 'error' => 'Failed to update attendance record: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Attendance status badge HTML
+ */
+function get_attendance_badge(string $status): string {
+    switch ($status) {
+        case 'Present':
+            return '<span class="badge badge-success px-2 py-1"><i class="fas fa-check-circle mr-1"></i>Present</span>';
+        case 'Half Day':
+            return '<span class="badge badge-warning px-2 py-1 text-dark"><i class="fas fa-adjust mr-1"></i>Half Day</span>';
+        case 'Absent':
+            return '<span class="badge badge-danger px-2 py-1"><i class="fas fa-times-circle mr-1"></i>Absent</span>';
+        default:
+            return '<span class="badge badge-secondary px-2 py-1"><i class="fas fa-minus-circle mr-1"></i>' . e($status) . '</span>';
+    }
+}
+
+/**
+ * Monthly attendance summary for an employee
+ */
+function get_employee_attendance_summary(int $userId, ?string $month = null, ?string $year = null): array {
+    $month = $month ?? date('m');
+    $year = $year ?? date('Y');
+
+    try {
+        $db = get_db();
+        $stmt = $db->prepare("
+            SELECT
+                COUNT(*) as total_records,
+                SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_count,
+                SUM(CASE WHEN status = 'Half Day' THEN 1 ELSE 0 END) as half_day_count,
+                SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as absent_count
+            FROM attendance
+            WHERE user_id = ?
+              AND strftime('%m', attendance_date) = ?
+              AND strftime('%Y', attendance_date) = ?
+        ");
+
+        if (Database::getActiveDriver() === 'mysql') {
+            $stmt = $db->prepare("
+                SELECT
+                    COUNT(*) as total_records,
+                    SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_count,
+                    SUM(CASE WHEN status = 'Half Day' THEN 1 ELSE 0 END) as half_day_count,
+                    SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as absent_count
+                FROM attendance
+                WHERE user_id = ?
+                  AND MONTH(attendance_date) = ?
+                  AND YEAR(attendance_date) = ?
+            ");
+        }
+
+        $stmt->execute([$userId, (int)$month, (int)$year]);
+        $row = $stmt->fetch();
+
+        $present = (int)($row['present_count'] ?? 0);
+        $halfDay = (int)($row['half_day_count'] ?? 0);
+        $absent  = (int)($row['absent_count'] ?? 0);
+        $total   = (int)($row['total_records'] ?? 0);
+
+        $effective = $present + ($halfDay * 0.5);
+        $rate = $total > 0 ? round(($effective / $total) * 100, 1) : 0.0;
+
+        return [
+            'total_records'     => $total,
+            'present_count'     => $present,
+            'half_day_count'    => $halfDay,
+            'absent_count'      => $absent,
+            'effective_present' => $effective,
+            'attendance_rate'   => $rate,
+            'month'             => $month,
+            'year'              => $year
+        ];
+    } catch (Exception $e) {
+        error_log("get_employee_attendance_summary error: " . $e->getMessage());
+        return [
+            'total_records'     => 0,
+            'present_count'     => 0,
+            'half_day_count'    => 0,
+            'absent_count'      => 0,
+            'effective_present' => 0,
+            'attendance_rate'   => 0.0,
+            'month'             => $month,
+            'year'              => $year
+        ];
+    }
+}
+

@@ -73,6 +73,22 @@ $isAdmin = is_admin();
                         </a>
                     </li>
 
+                    <li class="nav-header text-uppercase font-weight-bold text-muted">Attendance</li>
+
+                    <li class="nav-item">
+                        <a href="<?= $baseUrl ?>/admin/attendance.php" class="nav-link <?= $activeNav === 'admin_attendance' ? 'active' : '' ?>">
+                            <i class="nav-icon fas fa-user-check"></i>
+                            <p>Attendance Logs</p>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="<?= $baseUrl ?>/admin/attendance_sheet.php" class="nav-link <?= $activeNav === 'admin_attendance_sheet' ? 'active' : '' ?>">
+                            <i class="nav-icon fas fa-table"></i>
+                            <p>Attendance Sheet</p>
+                        </a>
+                    </li>
+
                     <li class="nav-item">
                         <a href="<?= $baseUrl ?>/admin/recordings.php" class="nav-link <?= $activeNav === 'admin_recordings' ? 'active' : '' ?>">
                             <i class="nav-icon fas fa-microphone-alt"></i>
@@ -106,7 +122,14 @@ $isAdmin = is_admin();
                         </a>
                     </li>
 
-                    <li class="nav-header text-uppercase font-weight-bold text-muted">Daily Reports</li>
+                    <li class="nav-header text-uppercase font-weight-bold text-muted">Daily Reports & Time</li>
+
+                    <li class="nav-item">
+                        <a href="<?= $baseUrl ?>/employee/attendance.php" class="nav-link <?= $activeNav === 'emp_attendance' ? 'active' : '' ?>">
+                            <i class="nav-icon fas fa-user-clock"></i>
+                            <p>Attendance</p>
+                        </a>
+                    </li>
 
                     <li class="nav-item">
                         <a href="<?= $baseUrl ?>/employee/today_report.php" class="nav-link <?= $activeNav === 'emp_today' ? 'active' : '' ?>">

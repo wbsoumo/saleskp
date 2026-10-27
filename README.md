@@ -76,6 +76,35 @@ Designed specifically for sales teams, BPOs, and telecalling operations, this ap
   - Configurable max audio upload size (MB) and allowed extensions.
   - Hosting environment diagnostics.
 
+### 🕒 5. Attendance Management System
+- **Daily Mandatory Attendance Check-In**:
+  - Automatically displays a non-dismissible modal (`#mandatoryAttendanceModal`) when an employee logs in for the first time on or after 7:00 AM before accessing the workspace/dashboard.
+  - Three distinct attendance statuses:
+    - **Present**: Full working day (1.0 day weight).
+    - **Half Day**: Partial shift of 4 hours (0.5 day weight).
+    - **Absent**: Leave / not available for calling duties today (0.0 day weight).
+  - Optional remarks/reasons (e.g., client field visit, approved sick leave, doctor appointment).
+- **One Entry Per Day & 7:00 AM Daily Cutoff**:
+  - Strictly limited to one submission per working day.
+  - Eligibility resets every morning at 7:00 AM server timezone (`Asia/Kolkata`).
+  - Working dates correctly attributed before and after the 7:00 AM boundary.
+  - Server-side validation and database unique key constraint `UNIQUE(user_id, attendance_date)` prevent duplicate punches.
+- **Employee Panel Attendance Section** (`employee/attendance.php`):
+  - Today's Check-In Status Card with recorded punch time and IP.
+  - KPI summary boxes: Total Full Days Present, Half Days, Absences, and Effective Attendance Rate (%).
+  - Month and Year selector to view past attendance logs.
+  - Detailed history table with day of the week, punch timestamp, IP, remarks, and admin correction audit status.
+- **Admin Attendance Management & Correction** (`admin/attendance.php`):
+  - Filterable by Date Range, Telecaller, and Attendance Status.
+  - Quick KPI summary of today's attendance directly on the Admin Dashboard.
+  - **Status Correction Modal**: Admin can adjust an employee's status (`Present`, `Half Day`, `Absent`) with **mandatory audit remarks** permanently stamped with `modified_by`, `modified_at`, and `admin_remarks`.
+  - **Manual Entry Punch**: Admin can manually record attendance for employees who were unable to self-punch.
+- **Complete Monthly Attendance Sheet Matrix** (`admin/attendance_sheet.php`):
+  - Grid layout with **Employees as rows** and **Calendar dates (01..31) as columns**.
+  - Visual status badges (`P` in green, `HD` in amber, `A` in red, `-` for unmarked/weekends).
+  - Row summary totals: Total Present, Total Half Day, Total Absent, Effective Days, and Attendance Rate %.
+  - **One-Click Excel / CSV Export**: Downloads complete UTF-8 formatted CSV matrix report.
+
 ---
 
 ## 🔐 Security Architecture
@@ -98,8 +127,10 @@ Designed specifically for sales teams, BPOs, and telecalling operations, this ap
 ```text
 sales-kp/
 ├── admin/
+│   ├── attendance.php       # Attendance logs, status corrections, and manual punches
+│   ├── attendance_sheet.php # Monthly attendance sheet matrix with Excel/CSV export
 │   ├── employees.php        # Employee CRUD & credentials management
-│   ├── index.php            # Admin Dashboard (KPIs, Charts, Pipeline)
+│   ├── index.php            # Admin Dashboard (KPIs, Charts, Pipeline, Attendance)
 │   ├── leads.php            # Leads management, CSV import, round-robin assignment
 │   ├── recordings.php       # Call recordings search & audio player
 │   ├── report_view.php      # Drill-down view of single daily report
@@ -115,14 +146,17 @@ sales-kp/
 │   ├── config.php           # App configuration, upload limits, DB credentials
 │   └── db.php               # Database connection manager (PDO MySQL & SQLite fallback)
 ├── employee/
+│   ├── attendance.php       # Employee attendance history, monthly summary, & rate
+│   ├── attendance_action.php# Action handler for daily attendance check-in
 │   ├── index.php            # Redirects to workspace.php
 │   ├── reports.php          # Date-wise historical reports with recording player
 │   ├── today_report.php     # Today's report entry & recording upload workflow
 │   └── workspace.php        # Calling Workspace (5 top summary cards, lead table)
 ├── includes/
+│   ├── attendance_modal.php # Mandatory daily attendance check-in modal (7:00 AM cutoff)
 │   ├── auth.php             # Session authentication, login/logout, role enforcement
 │   ├── footer.php           # AdminLTE 3 footer & script inclusions
-│   ├── functions.php        # Sanitization, date/duration formatters, audio uploader
+│   ├── functions.php        # Sanitization, attendance helpers, audio uploader
 │   ├── header.php           # AdminLTE 3 header & responsive navigation bar
 │   ├── lead_modal.php       # Interactive Lead Details & Call Logging Modal
 │   └── sidebar.php          # Dynamic sidebar (Admin vs Employee navigation)

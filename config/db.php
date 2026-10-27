@@ -98,7 +98,10 @@ class Database {
                 $stmtLeads = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='leads'");
                 $hasLeads = (bool) $stmtLeads->fetch();
 
-                if (!$hasUsers || !$hasLeads) {
+                $stmtAtt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='attendance'");
+                $hasAtt = (bool) $stmtAtt->fetch();
+
+                if (!$hasUsers || !$hasLeads || !$hasAtt) {
                     self::createSchema($pdo, $driver);
                 }
             } else {
@@ -108,7 +111,10 @@ class Database {
                 $stmtLeads = $pdo->query("SHOW TABLES LIKE 'leads'");
                 $hasLeads = (bool) $stmtLeads->fetch();
 
-                if (!$hasUsers || !$hasLeads) {
+                $stmtAtt = $pdo->query("SHOW TABLES LIKE 'attendance'");
+                $hasAtt = (bool) $stmtAtt->fetch();
+
+                if (!$hasUsers || !$hasLeads || !$hasAtt) {
                     self::createSchema($pdo, $driver);
                 }
             }
@@ -173,6 +179,25 @@ class Database {
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS attendance (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    attendance_date DATE NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'Present',
+                    punch_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    punch_ip TEXT,
+                    employee_remarks TEXT,
+                    is_modified INTEGER NOT NULL DEFAULT 0,
+                    modified_by INTEGER,
+                    modified_at DATETIME,
+                    admin_remarks TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, attendance_date),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (modified_by) REFERENCES users(id) ON DELETE SET NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS daily_reports (

@@ -17,6 +17,8 @@ $baseUrl = get_base_url();
 </div>
 <!-- ./wrapper -->
 
+<?php require_once __DIR__ . '/attendance_modal.php'; ?>
+
 <!-- REQUIRED SCRIPTS -->
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

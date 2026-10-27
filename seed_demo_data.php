@@ -58,6 +58,7 @@ $day3 = date('Y-m-d', strtotime('-3 days'));
 $db->exec("DELETE FROM daily_reports");
 $db->exec("DELETE FROM call_recordings");
 $db->exec("DELETE FROM lead_call_logs");
+$db->exec("DELETE FROM attendance");
 $db->exec("DELETE FROM leads");
 
 // 3. Seed Past Reports for EMP001 (Rahul)
@@ -278,8 +279,88 @@ foreach ($leadsData as $ld) {
     }
 }
 
-echo "Successfully seeded demo reports, CRM leads, and call logs!\n";
+// -------------------------------------------------------------
+// 6. Seed Realistic Monthly Attendance Records for Telecallers
+// -------------------------------------------------------------
+$adminUser = $db->query("SELECT id FROM users WHERE role = 'admin' LIMIT 1")->fetch();
+$adminId = $adminUser ? (int)$adminUser['id'] : 1;
+
+$currentYear = (int)date('Y');
+$currentMonth = (int)date('m');
+$currentDay = (int)date('d');
+
+$insAtt = $db->prepare("
+    INSERT INTO attendance (user_id, attendance_date, status, punch_time, punch_ip, employee_remarks, is_modified, modified_by, modified_at, admin_remarks, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+");
+
+$seededAttCount = 0;
+
+for ($d = 1; $d < $currentDay; $d++) {
+    $dateStr = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $d);
+    $dayOfWeek = date('N', strtotime($dateStr)); // 1 (Mon) to 7 (Sun)
+    if ($dayOfWeek == 7) continue; // Skip Sundays
+
+    // --- Rahul (EMP001) ---
+    $rStatus = 'Present';
+    $rRemarks = 'In-office calling shift';
+    $rIsMod = 0;
+    $rModBy = null;
+    $rModAt = null;
+    $rAdminRemarks = null;
+
+    if ($d === 10) {
+        $rStatus = 'Half Day';
+        $rRemarks = 'Doctor appointment in afternoon';
+    } elseif ($d === 18) {
+        $rStatus = 'Absent';
+        $rRemarks = 'Personal leave';
+    } elseif ($d === 14) {
+        $rStatus = 'Present';
+        $rRemarks = 'Missed morning punch on portal';
+        $rIsMod = 1;
+        $rModBy = $adminId;
+        $rModAt = $dateStr . ' 17:30:00';
+        $rAdminRemarks = 'Verified call logs; attendance confirmed by Admin';
+    }
+
+    $rTime = sprintf('%s %02d:%02d:00', $dateStr, rand(8, 9), rand(10, 50));
+    $insAtt->execute([
+        $emp1['id'], $dateStr, $rStatus, $rTime, '192.168.1.101', $rRemarks,
+        $rIsMod, $rModBy, $rModAt, $rAdminRemarks, $rTime, $rTime
+    ]);
+    $seededAttCount++;
+
+    // --- Priya (EMP002) ---
+    $pStatus = 'Present';
+    $pRemarks = 'Standard shift';
+    $pIsMod = 0;
+    $pModBy = null;
+    $pModAt = null;
+    $pAdminRemarks = null;
+
+    if ($d === 6) {
+        $pStatus = 'Half Day';
+        $pRemarks = 'Family commitment';
+    } elseif ($d === 12) {
+        $pStatus = 'Absent';
+        $pRemarks = 'Medical sick leave';
+    } elseif ($d === 22) {
+        $pStatus = 'Half Day';
+        $pRemarks = 'Half day client visit';
+    }
+
+    $pTime = sprintf('%s %02d:%02d:00', $dateStr, rand(8, 9), rand(15, 55));
+    $insAtt->execute([
+        $emp2['id'], $dateStr, $pStatus, $pTime, '192.168.1.102', $pRemarks,
+        $pIsMod, $pModBy, $pModAt, $pAdminRemarks, $pTime, $pTime
+    ]);
+    $seededAttCount++;
+}
+
+echo "Successfully seeded demo reports, CRM leads, and attendance data!\n";
+echo "- Total Attendance Records Seeded: {$seededAttCount}\n";
+echo "- Rahul (EMP001): Monthly attendance active (Today left unmarked for popup check-in)\n";
+echo "- Priya (EMP002): Monthly attendance active (Today left unmarked for popup check-in)\n";
 echo "- Total Leads Seeded: " . count($leadsData) . "\n";
-echo "- Rahul (EMP001): 4 assigned leads (1 Follow-up due today, 1 Interested, 1 Closed, 1 New)\n";
-echo "- Priya (EMP002): 4 assigned leads (1 Follow-up due today, 1 Meeting, 1 Ringing, 1 New)\n";
-echo "- Unassigned Leads: 2 leads ready for test assignment\n";
+

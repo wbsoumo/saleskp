@@ -82,6 +82,32 @@ CREATE TABLE IF NOT EXISTS `lead_call_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------
+-- Table structure for: attendance
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `attendance` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `attendance_date` DATE NOT NULL,
+  `status` ENUM('Present', 'Half Day', 'Absent') NOT NULL DEFAULT 'Present',
+  `punch_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `punch_ip` VARCHAR(45) DEFAULT NULL,
+  `employee_remarks` VARCHAR(255) DEFAULT NULL,
+  `is_modified` TINYINT(1) NOT NULL DEFAULT 0,
+  `modified_by` INT UNSIGNED DEFAULT NULL,
+  `modified_at` DATETIME DEFAULT NULL,
+  `admin_remarks` TEXT DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_user_attendance_date` (`user_id`, `attendance_date`),
+  KEY `idx_attendance_date` (`attendance_date`),
+  KEY `idx_attendance_status` (`status`),
+  KEY `idx_attendance_user` (`user_id`),
+  CONSTRAINT `fk_attendance_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_attendance_modified_by` FOREIGN KEY (`modified_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------
 -- Table structure for: daily_reports
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `daily_reports` (
