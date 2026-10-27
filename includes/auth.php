@@ -121,12 +121,11 @@ function authenticate_user(string $loginId, string $password): array {
 
     // Update last login timestamp
     try {
-        $updateStmt = $db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
-        $updateStmt->execute([$user['id']]);
+        $now = date('Y-m-d H:i:s');
+        $updateStmt = $db->prepare("UPDATE users SET last_login = ? WHERE id = ?");
+        $updateStmt->execute([$now, $user['id']]);
     } catch (Exception $e) {
-        // Fallback for SQLite datetime
-        $updateStmt = $db->prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?");
-        $updateStmt->execute([$user['id']]);
+        error_log("Failed to update last_login: " . $e->getMessage());
     }
 
     return ['success' => true, 'user' => $user];

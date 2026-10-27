@@ -70,7 +70,7 @@
                     <div class="tab-pane fade show active" id="tab-log" role="tabpanel">
                         <div id="logCallAlert" class="alert d-none"></div>
 
-                        <form id="formLogCall" enctype="multipart/form-data">
+                        <form id="formLogCall" action="<?= get_base_url() ?>/lead_api.php" method="POST" enctype="multipart/form-data" onsubmit="return submitCallLogForm(event);">
                             <?= csrf_field() ?>
                             <input type="hidden" name="action" value="log_call">
                             <input type="hidden" name="lead_id" id="logLeadId" value="">
@@ -129,7 +129,7 @@
                             </div>
 
                             <!-- Audio Recording Upload -->
-                            <div class="form-group mb-4">
+                            <div class="form-group mb-3">
                                 <label class="font-weight-bold text-secondary small">
                                     <i class="fas fa-microphone-alt text-danger mr-1"></i> Attach Call Recording (Optional)
                                 </label>
@@ -138,6 +138,36 @@
                                     <label class="custom-file-label" for="modalAudioFile">Choose audio file (mp3, wav, m4a, ogg)...</label>
                                 </div>
                                 <small class="text-muted">Max file size: <?= MAX_UPLOAD_SIZE_MB ?> MB</small>
+
+                                <!-- Audio Selection Preview -->
+                                <div id="modalAudioPreviewBox" class="mt-2 p-2 border rounded bg-light d-none">
+                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                        <div class="small font-weight-bold text-dark text-truncate" style="max-width: 75%;">
+                                            <i class="fas fa-file-audio text-danger mr-1"></i> <span id="modalAudioFileName">Selected audio</span>
+                                        </div>
+                                        <span id="modalAudioFileSize" class="badge badge-info px-2 py-1">0 KB</span>
+                                    </div>
+                                    <audio id="modalAudioPreviewPlayer" controls class="w-100 mt-1" style="height: 32px;" preload="none"></audio>
+                                </div>
+                            </div>
+
+                            <!-- Real-time Upload Progress Bar -->
+                            <div id="uploadProgressContainer" class="mb-3 p-3 bg-light border rounded d-none">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span id="uploadStatusText" class="small font-weight-bold text-primary">
+                                        <i class="fas fa-cloud-upload-alt mr-1"></i> Uploading recording...
+                                    </span>
+                                    <span id="uploadPercentText" class="badge badge-primary px-2 py-1 font-weight-bold">0%</span>
+                                </div>
+                                <div class="progress" style="height: 12px; border-radius: 6px; background-color: #dee2e6;">
+                                    <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <small id="uploadBytesText" class="text-muted" style="font-size: 0.75rem;">Uploading...</small>
+                                    <span id="uploadDoneBadge" class="badge badge-success px-2 py-1 font-weight-bold d-none shadow-sm">
+                                        <i class="fas fa-check-double mr-1"></i> Uploaded
+                                    </span>
+                                </div>
                             </div>
 
                             <button type="submit" id="btnSubmitLog" class="btn btn-primary btn-block btn-lg shadow-sm font-weight-bold">
@@ -190,14 +220,33 @@
 </div>
 
 <script>
-let currentOpenLeadPhone = '';
+window.currentOpenLeadPhone = '';
 
-function openLeadModal(leadId) {
+window.openLeadModal = function(leadId) {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery not loaded yet');
+        return;
+    }
+
+    isCallLogSubmitting = false;
+    $('#btnSubmitLog').prop('disabled', false).removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
     $('#logCallAlert').addClass('d-none').text('');
-    $('#formLogCall')[0].reset();
+    const form = document.getElementById('formLogCall');
+    if (form) form.reset();
+
     $('#modalAudioFile').next('.custom-file-label').html('Choose audio file (mp3, wav, m4a, ogg)...');
     $('#groupFollowUpDate').addClass('d-none');
     $('#inputFollowUpDate').prop('required', false);
+
+    $('#modalAudioPreviewBox').addClass('d-none');
+    $('#uploadProgressContainer').addClass('d-none');
+    $('#uploadProgressBar').css('width', '0%');
+    $('#uploadDoneBadge').addClass('d-none');
+    var prevPlayer = document.getElementById('modalAudioPreviewPlayer');
+    if (prevPlayer) {
+        prevPlayer.pause();
+        prevPlayer.src = '';
+    }
 
     // Set lead ID
     $('#logLeadId').val(leadId);
@@ -224,7 +273,7 @@ function openLeadModal(leadId) {
             }
 
             const l = resp.lead;
-            currentOpenLeadPhone = l.phone;
+            window.currentOpenLeadPhone = l.phone;
             $('#leadModalName').text(l.name);
             $('#leadModalCompany').text(l.company ? l.company : (l.city ? l.city : 'Direct Prospect'));
             $('#leadModalStatusBadge').html(l.status_badge);
@@ -245,16 +294,16 @@ function openLeadModal(leadId) {
 
             // Populate Call History
             $('#leadModalLogCount').text(resp.call_logs.length);
-            renderCallLogs(resp.call_logs);
+            window.renderCallLogs(resp.call_logs);
         },
         error: function() {
             alert('Error communicating with server.');
             $('#leadDetailsModal').modal('hide');
         }
     });
-}
+};
 
-function renderCallLogs(logs) {
+window.renderCallLogs = function(logs) {
     const container = $('#leadHistoryList');
     if (!logs || logs.length === 0) {
         container.html('<div class="text-center py-4 text-muted"><i class="fas fa-phone-slash fa-2x mb-2 text-secondary"></i><p>No call history recorded for this lead yet.</p></div>');
@@ -295,59 +344,53 @@ function renderCallLogs(logs) {
     });
     html += '<div><i class="fas fa-clock bg-gray"></i></div></div>';
     container.html(html);
-}
+};
 
-// Dynamic toggle for Follow-up Date requirement
-$('#selectCallOutcome').on('change', function() {
-    const outcome = $(this).val();
-    if (outcome === 'Follow-up Required' || outcome === 'Meeting Scheduled') {
-        $('#groupFollowUpDate').removeClass('d-none');
-        $('#inputFollowUpDate').prop('required', true);
-    } else {
-        $('#groupFollowUpDate').addClass('d-none');
-        $('#inputFollowUpDate').prop('required', false);
+let isCallLogSubmitting = false;
+
+// Form submit handler with progress bar
+window.submitCallLogForm = function(e) {
+    if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     }
-});
 
-// Copy Phone button
-$('#btnCopyPhone').on('click', function() {
-    if (currentOpenLeadPhone) {
-        navigator.clipboard.writeText(currentOpenLeadPhone).then(function() {
-            alert('Phone number copied to clipboard: ' + currentOpenLeadPhone);
-        });
+    if (isCallLogSubmitting) {
+        return false;
     }
-});
 
-// Auto-detect audio duration on file select
-$('#modalAudioFile').on('change', function() {
-    const file = this.files[0];
-    if (!file) return;
+    const form = document.getElementById('formLogCall');
+    if (!form) return false;
 
-    let fileName = $(this).val().split('\\').pop();
-    $(this).next('.custom-file-label').addClass('selected').html(fileName);
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+    }
 
-    const tempAudio = new Audio();
-    const objectUrl = URL.createObjectURL(file);
-    tempAudio.src = objectUrl;
-    tempAudio.addEventListener('loadedmetadata', function() {
-        const sec = Math.round(tempAudio.duration);
-        const m = Math.floor(sec / 60);
-        const s = sec % 60;
-        $('#inputCallDuration').val(String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'));
-        URL.revokeObjectURL(objectUrl);
-    });
-});
+    isCallLogSubmitting = true;
 
-// AJAX Form Submit for Call Logging
-$('#formLogCall').on('submit', function(e) {
-    e.preventDefault();
     const btn = $('#btnSubmitLog');
     const alertBox = $('#logCallAlert');
+    const audioInput = document.getElementById('modalAudioFile');
+    const hasAudio = audioInput && audioInput.files && audioInput.files.length > 0;
 
-    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Saving Call Log...');
+    btn.prop('disabled', true);
     alertBox.addClass('d-none').removeClass('alert-success alert-danger');
 
-    const formData = new FormData(this);
+    if (hasAudio) {
+        $('#uploadProgressContainer').removeClass('d-none');
+        $('#uploadProgressBar').removeClass('bg-success').addClass('bg-primary progress-bar-animated progress-bar-striped').css('width', '0%');
+        $('#uploadPercentText').removeClass('badge-success').addClass('badge-primary').text('0%');
+        $('#uploadStatusText').html('<i class="fas fa-cloud-upload-alt mr-1"></i> Uploading call recording...');
+        $('#uploadDoneBadge').addClass('d-none');
+        btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Uploading Recording...');
+    } else {
+        $('#uploadProgressContainer').addClass('d-none');
+        btn.html('<i class="fas fa-spinner fa-spin mr-1"></i> Saving Call Log...');
+    }
+
+    const formData = new FormData(form);
 
     $.ajax({
         url: '<?= get_base_url() ?>/lead_api.php',
@@ -356,22 +399,125 @@ $('#formLogCall').on('submit', function(e) {
         contentType: false,
         processData: false,
         dataType: 'json',
+        xhr: function() {
+            const xhr = new window.XMLHttpRequest();
+            if (hasAudio && xhr.upload) {
+                xhr.upload.addEventListener('progress', function(ev) {
+                    if (ev.lengthComputable) {
+                        const percent = Math.min(100, Math.round((ev.loaded / ev.total) * 100));
+                        $('#uploadProgressBar').css('width', percent + '%').attr('aria-valuenow', percent);
+                        $('#uploadPercentText').text(percent + '%');
+
+                        const loadedMb = (ev.loaded / (1024 * 1024)).toFixed(2);
+                        const totalMb = (ev.total / (1024 * 1024)).toFixed(2);
+                        $('#uploadBytesText').text(loadedMb + ' MB of ' + totalMb + ' MB uploaded');
+
+                        if (percent >= 100) {
+                            $('#uploadProgressBar').removeClass('bg-primary progress-bar-animated').addClass('bg-success');
+                            $('#uploadPercentText').removeClass('badge-primary').addClass('badge-success').text('100%');
+                            $('#uploadStatusText').html('<i class="fas fa-check-circle text-success mr-1"></i> <strong>Uploaded!</strong> Finalizing call data...');
+                            $('#uploadDoneBadge').removeClass('d-none');
+                        }
+                    }
+                }, false);
+            }
+            return xhr;
+        },
         success: function(resp) {
-            btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
             if (resp.success) {
+                if (hasAudio) {
+                    $('#uploadProgressBar').removeClass('bg-primary progress-bar-animated').addClass('bg-success').css('width', '100%');
+                    $('#uploadPercentText').removeClass('badge-primary').addClass('badge-success').text('100%');
+                    $('#uploadStatusText').html('<i class="fas fa-check-double text-success mr-1"></i> <strong class="text-success">Recording Uploaded & Call Saved!</strong>');
+                    $('#uploadDoneBadge').removeClass('d-none');
+                }
                 alertBox.removeClass('d-none').addClass('alert-success').html('<i class="fas fa-check-circle mr-1"></i> ' + resp.message);
-                // Reload page after 1.2 seconds to reflect updated summary cards and table
+                btn.removeClass('btn-primary').addClass('btn-success').html('<i class="fas fa-check mr-1"></i> Saved! Updating Lead...');
                 setTimeout(function() {
                     window.location.reload();
-                }, 1200);
+                }, 1500);
             } else {
+                isCallLogSubmitting = false;
+                btn.prop('disabled', false).removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
+                $('#uploadProgressContainer').addClass('d-none');
                 alertBox.removeClass('d-none').addClass('alert-danger').html('<i class="fas fa-exclamation-triangle mr-1"></i> ' + resp.error);
             }
         },
-        error: function() {
-            btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
-            alertBox.removeClass('d-none').addClass('alert-danger').html('<i class="fas fa-exclamation-triangle mr-1"></i> Network or server error.');
+        error: function(xhr) {
+            isCallLogSubmitting = false;
+            btn.prop('disabled', false).removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-save mr-1"></i> Save Call Log & Update Lead');
+            $('#uploadProgressContainer').addClass('d-none');
+            let errMsg = 'Network or server error while saving call data.';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errMsg = xhr.responseJSON.error;
+            }
+            alertBox.removeClass('d-none').addClass('alert-danger').html('<i class="fas fa-exclamation-triangle mr-1"></i> ' + errMsg);
         }
+    });
+
+    return false;
+};
+
+// Initialize listeners when jQuery and DOM are ready
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') return;
+
+    // Toggle Follow-up Date requirement
+    $('#selectCallOutcome').on('change', function() {
+        const outcome = $(this).val();
+        if (outcome === 'Follow-up Required' || outcome === 'Meeting Scheduled') {
+            $('#groupFollowUpDate').removeClass('d-none');
+            $('#inputFollowUpDate').prop('required', true);
+        } else {
+            $('#groupFollowUpDate').addClass('d-none');
+            $('#inputFollowUpDate').prop('required', false);
+        }
+    });
+
+    // Copy Phone button
+    $('#btnCopyPhone').on('click', function() {
+        if (window.currentOpenLeadPhone) {
+            navigator.clipboard.writeText(window.currentOpenLeadPhone).then(function() {
+                alert('Phone number copied to clipboard: ' + window.currentOpenLeadPhone);
+            });
+        }
+    });
+
+    // Audio duration auto-detect and preview player
+    $('#modalAudioFile').on('change', function() {
+        const file = this.files[0];
+        if (!file) {
+            $('#modalAudioPreviewBox').addClass('d-none');
+            return;
+        }
+
+        let fileName = $(this).val().split('\\').pop();
+        $(this).next('.custom-file-label').addClass('selected').html(fileName);
+
+        // Update preview details
+        $('#modalAudioFileName').text(fileName);
+        const sizeStr = file.size > 1048576 
+            ? (file.size / 1048576).toFixed(2) + ' MB'
+            : Math.round(file.size / 1024) + ' KB';
+        $('#modalAudioFileSize').text(sizeStr);
+        $('#modalAudioPreviewBox').removeClass('d-none');
+
+        const previewPlayer = document.getElementById('modalAudioPreviewPlayer');
+        const objectUrl = URL.createObjectURL(file);
+        if (previewPlayer) {
+            previewPlayer.src = objectUrl;
+        }
+
+        const tempAudio = new Audio();
+        tempAudio.src = objectUrl;
+        tempAudio.addEventListener('loadedmetadata', function() {
+            if (!isNaN(tempAudio.duration) && isFinite(tempAudio.duration)) {
+                const sec = Math.round(tempAudio.duration);
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                $('#inputCallDuration').val(String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'));
+            }
+        });
     });
 });
 </script>

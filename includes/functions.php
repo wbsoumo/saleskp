@@ -171,13 +171,28 @@ function validate_audio_upload(array $file): array {
 
     $isValidMime = in_array($detectedMime, $ALLOWED_AUDIO_MIMES, true) ||
                    str_starts_with($detectedMime, 'audio/') ||
-                   str_starts_with($detectedMime, 'video/mp4');
+                   str_starts_with($detectedMime, 'video/mp4') ||
+                   str_starts_with($detectedMime, 'video/webm') ||
+                   ($detectedMime === 'application/octet-stream' && in_array($ext, $ALLOWED_AUDIO_EXTENSIONS, true));
 
     if (!$isValidMime) {
         return [
             'valid' => false,
             'error' => 'Invalid file MIME type (' . e($detectedMime) . '). Please upload a valid audio recording.'
         ];
+    }
+
+    if ($detectedMime === 'application/octet-stream') {
+        $mimeMap = [
+            'wav'  => 'audio/wav',
+            'mp3'  => 'audio/mpeg',
+            'm4a'  => 'audio/mp4',
+            'ogg'  => 'audio/ogg',
+            'aac'  => 'audio/aac',
+            'amr'  => 'audio/amr',
+            'webm' => 'audio/webm'
+        ];
+        $detectedMime = $mimeMap[$ext] ?? 'audio/mpeg';
     }
 
     return [
@@ -224,7 +239,11 @@ function save_call_recording(array $file, string $employeeCode, string $reportDa
     $targetFilePath = $targetDir . '/' . $generatedFilename;
     $relativeFilePath = $relativeDir . '/' . $generatedFilename;
 
-    if (!move_uploaded_file($file['tmp_name'], $targetFilePath)) {
+    $moved = is_uploaded_file($file['tmp_name'])
+        ? move_uploaded_file($file['tmp_name'], $targetFilePath)
+        : (copy($file['tmp_name'], $targetFilePath) && (@unlink($file['tmp_name']) || true));
+
+    if (!$moved) {
         return ['success' => false, 'error' => 'Failed to save uploaded file to destination directory.'];
     }
 

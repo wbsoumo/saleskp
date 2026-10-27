@@ -44,12 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     try {
         if ($todayReport) {
             // Update existing report
+            $now = date('Y-m-d H:i:s');
             $updateStmt = $db->prepare("
                 UPDATE daily_reports 
-                SET total_calls = ?, call_attempts = ?, interested_leads = ?, meetings_booked = ?, sales_closed = ?, notes = ?, updated_at = NOW()
+                SET total_calls = ?, call_attempts = ?, interested_leads = ?, meetings_booked = ?, sales_closed = ?, notes = ?, updated_at = ?
                 WHERE id = ? AND user_id = ?
             ");
-            $updateStmt->execute([$totalCalls, $callAttempts, $interested, $meetings, $salesClosed, $notes, $todayReport['id'], $userId]);
+            $updateStmt->execute([$totalCalls, $callAttempts, $interested, $meetings, $salesClosed, $notes, $now, $todayReport['id'], $userId]);
             set_flash('success', "Today's report statistics updated successfully!");
         } else {
             // Insert new report
@@ -640,15 +641,34 @@ $flash = get_flash();
                         </small>
                     </div>
 
-                    <div class="form-group mb-0">
+                    <div class="form-group mb-3">
                         <label class="font-weight-bold text-secondary">Call Notes / Discussion Summary</label>
                         <textarea name="call_notes" class="form-control" rows="2" placeholder="Customer requirements, next action, follow-up date..."></textarea>
+                    </div>
+
+                    <!-- Real-time Upload Progress Bar -->
+                    <div id="reportUploadProgressContainer" class="form-group mb-0 p-3 bg-light border rounded d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span id="reportUploadStatusText" class="small font-weight-bold text-primary">
+                                <i class="fas fa-cloud-upload-alt mr-1"></i> Uploading recording...
+                            </span>
+                            <span id="reportUploadPercentText" class="badge badge-primary px-2 py-1 font-weight-bold">0%</span>
+                        </div>
+                        <div class="progress" style="height: 12px; border-radius: 6px; background-color: #dee2e6;">
+                            <div id="reportUploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small id="reportUploadBytesText" class="text-muted" style="font-size: 0.75rem;">Uploading...</small>
+                            <span id="reportUploadDoneBadge" class="badge badge-success px-2 py-1 font-weight-bold d-none shadow-sm">
+                                <i class="fas fa-check-double mr-1"></i> Uploaded
+                            </span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                    <button type="submit" id="btnUploadRecording" class="btn btn-primary px-4 shadow-sm font-weight-bold">
                         <i class="fas fa-upload mr-1"></i> Upload Recording
                     </button>
                 </div>
@@ -661,10 +681,92 @@ $flash = get_flash();
 <?php
 $extraScripts = "
 <script>
-    // Custom file input label update
+    // Custom file input label update & duration detection
     $('.custom-file-input').on('change', function() {
         let fileName = $(this).val().split('\\\\').pop();
         $(this).next('.custom-file-label').addClass('selected').html(fileName || 'Choose audio file...');
+
+        const file = this.files[0];
+        if (file && this.id === 'audioFileInput') {
+            const tempAudio = new Audio();
+            const objectUrl = URL.createObjectURL(file);
+            tempAudio.src = objectUrl;
+            tempAudio.addEventListener('loadedmetadata', function() {
+                if (!isNaN(tempAudio.duration) && isFinite(tempAudio.duration)) {
+                    const sec = Math.round(tempAudio.duration);
+                    const m = Math.floor(sec / 60);
+                    const s = sec % 60;
+                    $('input[name=\"call_duration\"]').val(String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'));
+                }
+            });
+        }
+    });
+
+    // Real-time progress bar upload handler for Today Report recording
+    $('#recordingUploadForm').on('submit', function(e) {
+        const fileInput = document.getElementById('audioFileInput');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            return; // let browser standard validation handle required field
+        }
+
+        e.preventDefault();
+        const btn = $('#btnUploadRecording');
+        btn.prop('disabled', true).html('<i class=\"fas fa-spinner fa-spin mr-1\"></i> Uploading...');
+
+        $('#reportUploadProgressContainer').removeClass('d-none');
+        $('#reportUploadProgressBar').removeClass('bg-success').addClass('bg-primary progress-bar-animated progress-bar-striped').css('width', '0%');
+        $('#reportUploadPercentText').removeClass('badge-success').addClass('badge-primary').text('0%');
+        $('#reportUploadStatusText').html('<i class=\"fas fa-cloud-upload-alt mr-1\"></i> Uploading recording...');
+        $('#reportUploadDoneBadge').addClass('d-none');
+
+        const formData = new FormData(this);
+
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            xhr: function() {
+                const xhr = new window.XMLHttpRequest();
+                if (xhr.upload) {
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
+                            $('#reportUploadProgressBar').css('width', percent + '%').attr('aria-valuenow', percent);
+                            $('#reportUploadPercentText').text(percent + '%');
+
+                            const loadedMb = (e.loaded / (1024 * 1024)).toFixed(2);
+                            const totalMb = (e.total / (1024 * 1024)).toFixed(2);
+                            $('#reportUploadBytesText').text(loadedMb + ' MB of ' + totalMb + ' MB uploaded');
+
+                            if (percent >= 100) {
+                                $('#reportUploadProgressBar').removeClass('bg-primary progress-bar-animated').addClass('bg-success');
+                                $('#reportUploadPercentText').removeClass('badge-primary').addClass('badge-success').text('100%');
+                                $('#reportUploadStatusText').html('<i class=\"fas fa-check-circle text-success mr-1\"></i> <strong>Uploaded!</strong> Finalizing recording...');
+                                $('#reportUploadDoneBadge').removeClass('d-none');
+                            }
+                        }
+                    }, false);
+                }
+                return xhr;
+            },
+            success: function() {
+                $('#reportUploadProgressBar').removeClass('bg-primary progress-bar-animated').addClass('bg-success').css('width', '100%');
+                $('#reportUploadPercentText').removeClass('badge-primary').addClass('badge-success').text('100%');
+                $('#reportUploadStatusText').html('<i class=\"fas fa-check-double text-success mr-1\"></i> <strong class=\"text-success\">Recording Uploaded Successfully!</strong>');
+                $('#reportUploadDoneBadge').removeClass('d-none');
+                btn.removeClass('btn-primary').addClass('btn-success').html('<i class=\"fas fa-check mr-1\"></i> Uploaded!');
+                setTimeout(function() {
+                    window.location.href = '" . get_base_url() . "/employee/today_report.php?step=recordings#recordingsSection';
+                }, 1000);
+            },
+            error: function() {
+                btn.prop('disabled', false).removeClass('btn-success').addClass('btn-primary').html('<i class=\"fas fa-upload mr-1\"></i> Upload Recording');
+                $('#reportUploadProgressContainer').addClass('d-none');
+                alert('Upload failed. Please check file format and network connection.');
+            }
+        });
     });
 </script>
 ";

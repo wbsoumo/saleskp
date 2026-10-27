@@ -31,6 +31,8 @@ $baseUrl = get_base_url();
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap4.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/custom.css">
+    <!-- jQuery (loaded in head so all inline scripts and modals have immediate access to $) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed text-sm">
 <div class="wrapper">

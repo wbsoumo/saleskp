@@ -20,8 +20,6 @@ $baseUrl = get_base_url();
 <?php require_once __DIR__ . '/attendance_modal.php'; ?>
 
 <!-- REQUIRED SCRIPTS -->
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <!-- Bootstrap 4 Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->

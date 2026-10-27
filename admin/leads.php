@@ -80,9 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             INSERT INTO leads (name, phone, company, email, city, notes, assigned_to, status, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'New', ?)
         ");
+        $now = date('Y-m-d H:i:s');
         $updateLead = $db->prepare("
             UPDATE leads 
-            SET name = ?, company = ?, email = ?, city = ?, notes = ?, updated_at = NOW()
+            SET name = ?, company = ?, email = ?, city = ?, notes = ?, updated_at = ?
             WHERE id = ?
         ");
 
@@ -95,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             if ($existing) {
                 if ($dupMode === 'update') {
-                    $updateLead->execute([$l['name'], $l['company'], $l['email'], $l['city'], $l['notes'], $existing['id']]);
+                    $updateLead->execute([$l['name'], $l['company'], $l['email'], $l['city'], $l['notes'], $now, $existing['id']]);
                     $updatedCount++;
                 } else {
                     $skippedCount++;
@@ -203,10 +204,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     $targetVal = ($targetEmp > 0) ? $targetEmp : null;
+    $now = date('Y-m-d H:i:s');
     $placeholders = implode(',', array_fill(0, count($leadIds), '?'));
-    $params = array_merge([$targetVal], $leadIds);
+    $params = array_merge([$targetVal, $now], $leadIds);
 
-    $upd = $db->prepare("UPDATE leads SET assigned_to = ?, updated_at = NOW() WHERE id IN ($placeholders)");
+    $upd = $db->prepare("UPDATE leads SET assigned_to = ?, updated_at = ? WHERE id IN ($placeholders)");
     $upd->execute($params);
 
     set_flash('success', count($leadIds) . ' leads updated successfully!');

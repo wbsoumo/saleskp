@@ -179,9 +179,21 @@ if ($action === 'log_call') {
         $recordingName = $uploadResult['original_name'];
         $recordingSize = $uploadResult['file_size'];
         $recordingMime = $uploadResult['file_mime'];
+    } elseif (isset($_FILES['audio_file']) && $_FILES['audio_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $errCode = $_FILES['audio_file']['error'];
+        $errMsg = 'Audio upload error (code ' . $errCode . ').';
+        if ($errCode === UPLOAD_ERR_INI_SIZE || $errCode === UPLOAD_ERR_FORM_SIZE) {
+            $errMsg = 'Recording file size exceeds server maximum limit of ' . MAX_UPLOAD_SIZE_MB . ' MB.';
+        } elseif ($errCode === UPLOAD_ERR_PARTIAL) {
+            $errMsg = 'The audio file was only partially uploaded. Please try again.';
+        }
+        echo json_encode(['success' => false, 'error' => $errMsg]);
+        exit;
     }
 
     try {
+        $now = date('Y-m-d H:i:s');
+
         // Begin transaction
         $db->beginTransaction();
 
@@ -189,8 +201,8 @@ if ($action === 'log_call') {
         $logStmt = $db->prepare("
             INSERT INTO lead_call_logs (
                 lead_id, user_id, call_outcome, call_duration, follow_up_date, remarks,
-                recording_path, recording_name, recording_size, recording_mime
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                recording_path, recording_name, recording_size, recording_mime, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $logStmt->execute([
             $leadId,
@@ -202,21 +214,22 @@ if ($action === 'log_call') {
             $recordingPath,
             $recordingName,
             $recordingSize,
-            $recordingMime
+            $recordingMime,
+            $now
         ]);
 
-        // 2. Update leads table
+        // 2. Update leads table (cross-platform compatible timestamp)
         $updateLead = $db->prepare("
             UPDATE leads
             SET call_attempts = call_attempts + 1,
                 status = ?,
-                last_called_at = NOW(),
+                last_called_at = ?,
                 last_call_status = ?,
                 follow_up_date = ?,
-                updated_at = NOW()
+                updated_at = ?
             WHERE id = ?
         ");
-        $updateLead->execute([$callOutcome, $callOutcome, $sqlFollowUp, $leadId]);
+        $updateLead->execute([$callOutcome, $now, $callOutcome, $sqlFollowUp, $now, $leadId]);
 
         // 3. Sync with today's daily_report if telecaller has a report or create/update
         $todayDate = date('Y-m-d');
@@ -238,16 +251,16 @@ if ($action === 'log_call') {
                     interested_leads = interested_leads + ?,
                     meetings_booked = meetings_booked + ?,
                     sales_closed = sales_closed + ?,
-                    updated_at = NOW()
+                    updated_at = ?
                 WHERE id = ?
             ");
-            $repUpdate->execute([$attemptCount, $isInterested, $isMeeting, $isSale, $existingReportId]);
+            $repUpdate->execute([$attemptCount, $isInterested, $isMeeting, $isSale, $now, $existingReportId]);
         } else {
             $repInsert = $db->prepare("
-                INSERT INTO daily_reports (user_id, report_date, total_calls, call_attempts, interested_leads, meetings_booked, sales_closed)
-                VALUES (?, ?, 1, ?, ?, ?, ?)
+                INSERT INTO daily_reports (user_id, report_date, total_calls, call_attempts, interested_leads, meetings_booked, sales_closed, created_at, updated_at)
+                VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)
             ");
-            $repInsert->execute([$userId, $todayDate, $attemptCount, $isInterested, $isMeeting, $isSale]);
+            $repInsert->execute([$userId, $todayDate, $attemptCount, $isInterested, $isMeeting, $isSale, $now, $now]);
             $existingReportId = $db->lastInsertId();
         }
 
@@ -256,8 +269,8 @@ if ($action === 'log_call') {
             $recStmt = $db->prepare("
                 INSERT INTO call_recordings (
                     report_id, user_id, phone_number, customer_name, call_status, call_duration, call_notes,
-                    file_path, file_name, original_name, file_size, file_mime
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    file_path, file_name, original_name, file_size, file_mime, uploaded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $recStmt->execute([
                 $existingReportId,
@@ -271,7 +284,8 @@ if ($action === 'log_call') {
                 basename($recordingPath),
                 $recordingName ?: 'recording.wav',
                 $recordingSize,
-                $recordingMime ?: 'audio/wav'
+                $recordingMime ?: 'audio/wav',
+                $now
             ]);
         }
 
